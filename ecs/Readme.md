@@ -1,212 +1,32 @@
-# ECS Fargate Deployment with Terraform and GitLab CI/CD
+# GitLab CI/CD with AWS ECS and Terraform
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Project Architecture](#project-architecture)
-3. [Getting Started](#getting-started)
-4. [Modules](#modules)
-   - [Terraform Backend](#terraform-backend)
-   - [Networking](#networking)
-   - [ECS Infrastructure Overview](#ecs-infrastructure)
-      - [ECS Configuration](#ecs-configuration)
-      - [ALB Configuration](#alb-configuration)
-      - [ECR Configuration](#ecr-configuration) (have to create manually to push the docker image first)
-      - [ACM Configuration](#acm-configuration)
-      - [Route53 Configuration](#route53-configuration)
-      - [IAM Permissions](#iam-roles-and-policies-for-ecs-tasks)
-      - [Security Groups](#security-groups-configuration)
-      - [Provider and Backend Configuration](#provider-and-backend-configuration)
-      - [terraform.tfvars](#terraform-tfvars)
-5. [GitLab CI/CD Setup](#gitlab-cicd-setup)
+2. [Infrastructure Setup](#infrastructure-setup)
+   - [ECS Configuration](#ecs-configuration)
+   - [ALB Configuration](#alb-configuration)
+   - [ECR Configuration](#ecr-configuration)
+   - [ACM Configuration](#acm-configuration)
+   - [Route53 Configuration](#route53-configuration)
+   - [IAM Permissions](#iam-roles-and-policies-for-ecs-tasks)
+   - [Security Groups](#security-groups-configuration)
+   - [Provider and Backend Configuration](#provider-and-backend-configuration)
+   - [Terraform.Tfvars](#terraform-tfvars)
+
+3. [GitLab CI/CD Configuration Overview](#gitlab-cicd-configuration-overview)
       - [Create an IAM user account for GitLab CI/CD](#gitlab-iam-user)
       - [Set up CI/CD Pipelines](#pipelines-setup)
-
-
-6. [Application Details](#application-details)
       - [Python application](#python-application)
       - [Dockerfile](#dockerfile)
-7. [Additional Notes](#additional-notes)
 
 ---
 
 ## Overview
-This project automates the deployment of a containerized Python application on **AWS ECS Fargate** using **Terraform** for infrastructure provisioning and **GitLab CI/CD** for continuous integration and delivery.
-
-### Key Features
-- **Modular Terraform Setup**: Backend, networking, and ECS modules for scalability.
-- **CI/CD Pipeline**: Automates Docker image build, push to ECR, and deployment to ECS.
-- **Dev and Prod Environments**: Isolated environments with dedicated ALB configurations.
-- **TLS Support**: Secure HTTPS setup using ACM and Route 53.
+This project demonstrates setting up a CI/CD pipeline using GitLab for deploying a containerized web application on AWS ECS Fargate. The infrastructure is provisioned using Terraform with a focus on security, scalability, and maintainability.
 
 ---
 
-## Project Architecture
-![Project Architecture](images/architecture_diagram.png)
-
----
-
-## Getting Started
-
-### Prerequisites
-- **AWS CLI** installed and configured.
-- **Terraform** (>= 1.6.0).
-- **GitLab Account** with necessary permissions.
-- **Docker** installed locally for testing builds.
-
-### Steps
-1. Clone the repository:
-```bash
-git clone https://github.com/sahibgasimov/ecs-gitlab-terraform.git
-
-cd ecs-gitlab-terraform
-```
-
-### Modules
-
-```tree
-├── backend/           # Terraform backend module
-├── networking/        # VPC and networking module
-├── ecs/               # ECS cluster and services module
-├── images/            # Architecture and CI/CD images
-├── app/               # Python application code
-├── .gitlab-ci.yml     # GitLab CI/CD pipeline
-└── README.md          # Project documentation
-```
-
-### Terraform Backend
-
-This repository contains a Terraform configuration to manage state files and locking using AWS S3 and DynamoDB. It sets up an S3 bucket for state file storage and a DynamoDB table for state locking.
-
----
-
-#### Features
-
-- **S3 Bucket**: Stores the Terraform state file.
-  - Versioning is enabled for safety.
-  - Configured to allow state storage with high reliability.
-- **DynamoDB Table**: Provides state locking to prevent race conditions in multi-user environments.
-
----
-
-### How It Works
-
-1. **Manual S3 Bucket Creation**:
-   - Before running Terraform, create the S3 bucket manually to ensure the bucket is not accidentally destroyed by Terraform.
-
-2. **Local to Remote State Migration**:
-   - Initially, the state is stored locally. After running Terraform to create required resources (S3 and DynamoDB), the backend is updated to use the S3 bucket for remote state storage.
-
-## Installation and Usage
-
-### Step 1: Initialize and Apply Configuration with Local Backend
-
-1. Clone the repository:
-```git
-git clone https://github.com/sahibgasimov/ecs-gitlab-terraform.git
-cd backend
-```
-Initialize Terraform:
-
-```hcl
-terraform init
-terraform apply
-```
-
-### Step 2: Configure Remote Backend with S3
-Uncomment the following block in main.tf and run terraform apply to create backend module. Once created update your existing s3 bucket to migrate state file to s3 bucket. 
-
-```
-terraform {
-  backend "s3" {
-    bucket         = "my-project-terraform-state-prod"  # Replace with your S3 bucket name
-    key            = "backend/terraform.tfstate"      
-    region         = "us-east-1"                      
-    dynamodb_table = "my-project-terraform-lock"       
-    encrypt        = true
-  }
-}
-```
- 
-
-Migrate the state file to the S3 backend:
-
-```hcl
-terraform init -migrate-state
-```
-
-![alt text](images/terraform_state_backend.jpg)
-
-#### File Structure
-```
-
-├── main.tf             # Main configuration file
-├── variables.tf        # Input variables
-├── terraform.tfvars    # Variable values
-├── outputs.tf          # Outputs for debug and reference
-├── README.md           # Project documentation
-```
-
-
-#### Notes
-- Create S3 remote state bucket manually to prevent accidental deletion.
-- The backend configuration uses versioning for safety and state locking for consistency.
-- Dynamodb table locks Terraform state files to prevent concurrent modifications.
-
-### Networking
-
-#### VPC Module for ECS Cluster
-
-This module configures an AWS Virtual Private Cloud (VPC) for the ECS cluster, including private and public subnets, NAT gateway routes for private subnet, and internet gateway for public subnet.
-
----
-
-![alt text](images/image.png)
-
-## Features
-
-- **VPC Creation**:
-  - CIDR block: `10.0.0.0/16`
-  - Public and private subnets across availability zones.
-- **NAT Gateway**:
-  - Enabled for outbound internet access from private subnets.
-- **Internet Gateway**
-  - Enabled for outbound internet access from public subnets.
-
----
-
-## Prerequisites
-
-- Ensure the backend S3 bucket and DynamoDB table for Terraform state are already configured. Check Backend module for the steps above.
-- AWS credentials must be set up for the specified region.
-
----
-
-## File Structure
-
-```plaintext
-.
-├── main.tf             # Defines the VPC module and its configurations
-├── provider.tf         # Configures the AWS provider and backend
-├── variables.tf        # Declares input variables
-├── terraform.tfvars    # Defines variable values
-├── outputs.tf          # Exports outputs such as subnet and VPC IDs  
-
-```
-### Usage
-
-```
-terraform init
-terraform apply
-```
-
-![alt text](images/terraform_plan.png)
-
-### Notes
-- The terraform-aws-modules/vpc module is used to simplify VPC creation.
-- Ensure availability zones in your region support the configuration.
-- Update main.tf with CIDR block and subnet details if necessary.
-
-### ECS Infrastructure
+## Infrastructure Setup
 
 ### ECS Configuration
 
@@ -453,7 +273,7 @@ resource "aws_lb_target_group" "prod_target_group" {
 
 ### ECR Configuration
 
-For this demo tutorial I have to create ECR manually since we have to push the docker image to ECR before we create ECS task definition deployment. I do however included ECR configuration in the ecr.tf file, you can alwaus import the resource with terraform import command.
+For this demo tutorial I have to create ECR manually since we have to push image to ECR before we do task definition deployment. I do however included ECR configuration in the ecr.tf file.
 
 ### ACM Configuration
 
@@ -531,9 +351,9 @@ resource "aws_route53_record" "prod_record" {
 ```
 
 
-### IAM Roles and Policies for ECS Tasks
+# IAM Roles and Policies for ECS Tasks
 
-### 1. Execution Role
+## 1. Execution Role
 #### Role: `aws_iam_role.ecs_task_execution_role`
 
 #### Permissions
@@ -586,145 +406,7 @@ Custom policy with fine-grained permissions for:
 - Secrets Manager access.
 - Application-level logging to CloudWatch Logs.
 
-
-```hcl
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name        = "${var.app_name}-task-execution"
-  description = "Allows ECS tasks to call AWS services on your behalf"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect    = "Allow",
-        Principal = { Service = "ecs-tasks.amazonaws.com" },
-        Action    = "sts:AssumeRole"
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${var.app_name}-task-execution"
-  }
-}
-
-resource "aws_iam_role_policy" "ecs_task_execution_policy" {
-  name = "${var.app_name}-execution-policy"
-  role = aws_iam_role.ecs_task_execution_role.name
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:BatchCheckLayerAvailability",
-          "logs:PutLogEvents",
-          "logs:CreateLogStream",
-          "ssm:GetParameters",
-          "ssm:GetParameter",
-          "ssm:GetParameterHistory",
-          "ecr:GetAuthorizationToken"
-
-        ],
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role" "ecs_task_role" {
-  name        = "${var.app_name}-task"
-  description = "Allows ECS tasks to assume this role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect    = "Allow",
-        Principal = { Service = "ecs-tasks.amazonaws.com" },
-        Action    = "sts:AssumeRole"
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${var.app_name}-task"
-  }
-}
-
-resource "aws_iam_role_policy" "ecs_task_custom_policy" {
-  name = "${var.app_name}-custom-task-policy"
-  role = aws_iam_role.ecs_task_role.name
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "s3:ListBucket",
-          "s3:GetObject",
-          "secretsmanager:GetSecretValue",
-          "logs:PutLogEvents",
-          "logs:CreateLogStream"
-        ],
-        Resource = "*"
-      }
-    ]
-  })
-}
-```
-
-### 3. IAM User gitlab-cicd
-
-This user will be used for setting up GitLab CICD Pipelines. Access and Secret keys will be stored in Parameters Store you will need once we start setting up pipelines. User will have these two policies assigned AmazonEC2ContainerRegistryPowerUser and AmazonECS_FullAccess
-
-```hcl
-
-# Create the IAM user
-resource "aws_iam_user" "gitlab_cicd" {
-  name = "gitlab-cicd"
-}
-
-# Attach AmazonEC2ContainerRegistryPowerUser policy
-resource "aws_iam_user_policy_attachment" "ecr_power_user" {
-  user       = aws_iam_user.gitlab_cicd.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
-}
-
-# Attach AmazonECS_FullAccess policy
-resource "aws_iam_user_policy_attachment" "ecs_full_access" {
-  user       = aws_iam_user.gitlab_cicd.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonECS_FullAccess"
-}
-
-# Create access keys for the user
-resource "aws_iam_access_key" "gitlab_cicd_key" {
-  user = aws_iam_user.gitlab_cicd.name
-}
-
-# Store Access Key ID in SSM Parameter Store
-resource "aws_ssm_parameter" "access_key_id" {
-  name        = "/gitlab-cicd/access_key_id"
-  description = "Access Key ID for gitlab-cicd user"
-  type        = "String"
-  value       = aws_iam_access_key.gitlab_cicd_key.id
-
-}
-
-# Store Secret Access Key in SSM Parameter Store
-resource "aws_ssm_parameter" "secret_access_key" {
-  name        = "/gitlab-cicd/secret_access_key"
-  description = "Secret Access Key for gitlab-cicd user"
-  type        = "SecureString"
-  value       = aws_iam_access_key.gitlab_cicd_key.secret
-
-}
-```
 ---
-
 
 ### Security Groups Configuration
 
@@ -852,15 +534,16 @@ module "sg_ecs_prod" {
 This Terraform configuration sets up the foundational settings for managing AWS infrastructure, including backend state management and required providers.
 
 
-#### Required Version
+
+### Required Version
 - **Terraform**: `>= 1.6.0`
 
-#### Providers
+### Providers
 - **AWS**: `~> 5.73.0`
 - **Random**: `~> 3.6.0`
 
-#### Backend Configuration
-The state file is stored in an S3 bucket for secure and centralized management. State locking is enabled using DynamoDB. We will be using the s3 bucket that we configured in earlier from Backend module.
+### Backend Configuration
+The state file is stored in an S3 bucket for secure and centralized management. State locking is enabled using DynamoDB.
 
 - **S3 Bucket**: `my-project-terraform-state-prod` (replace with your bucket name)
 - **State File Key**: `ecs/terraform.tfstate`
@@ -868,11 +551,11 @@ The state file is stored in an S3 bucket for secure and centralized management. 
 - **DynamoDB Table**: `my-project-terraform-lock` (replace with your table name)
 - **Encryption**: Enabled
 
-#### AWS Provider Configuration
+## AWS Provider Configuration
 - **Region**: Configured dynamically using `var.region`.
 - **Default Tags**: Optional feature to apply tags to all resources (to be configured as needed).
 
-#### Remote State Data Source
+## Remote State Data Source
 - Pulls the networking state from a remote S3 bucket.
   - **Bucket**: `my-project-terraform-state-prod` (replace with your bucket name)
   - **State File Key**: `networking/terraform.tfstate`
@@ -880,7 +563,7 @@ The state file is stored in an S3 bucket for secure and centralized management. 
   - **DynamoDB Table**: `my-project-terraform-lock`
   - **Encryption**: Enabled
 
-### Key Highlights
+## Key Highlights
 - **Remote State Management**: Ensures infrastructure consistency across teams by using a centralized state file.
 - **State Locking**: Prevents concurrent modifications using DynamoDB.
 - **Modular Design**: Enables seamless integration with other infrastructure components via remote state.
@@ -931,7 +614,7 @@ data "terraform_remote_state" "vpc" {
 
 ```
 
-### terraform.tfvars
+### Terraform.Tfvars
 
 #### Environment and Region Configuration
 
@@ -976,24 +659,20 @@ alb_hostname_prod = "web-app-prod.452303021915.realhandsonlabs.net"
 route53_zone_id = "Z10075723METSXT8WC4VB"
 ```
 
-## Gitlab CI/CD Setup
+## Gitlab CI/CD Configuration Overview
 
 We will build a GitLab CI/CD pipeline from scratch to automate deployments to AWS ECS Fargate utilizing Docker containers, AWS ECR for image storage, and GitLab YAML for configuration.
 
-Pipeline Structure: Two branches (dev and prod)  define the target ECS service/task based on the ECS service name and deploy the application.
+Pipeline Structure: Two branches (dev and prod) dynamically define the target ECS service/task based on the environment name and deploy the application.
 Stages: Automate validation, build, push, and deployment through defined CI/CD stages.
 
-- GitLab AWS IAM User
-- GitLab Project 
-- Setup branch dev and main protection
-- Setup GitLab CICD Pipelines
 
 ### GitLab IAM user
 
-Terraform will create an IAM user and store IAM acccess and secret credentials for 'gitlab-cicd' user. We will need to retrieve IAM access and sercret keys from SSM Parameters Store.  This user doesn't need programmatic but terminal access only. 
+Create an IAM user 'gitlab-cicd' give the below permissions. This user doesn't need programmatic console access only. Generate Access and Secret keys for this user.
 
 ![alt text](images/gitlab_cicd.png)
-![alt text](images/parameters_store.png)
+
 
 Log in to your Gitlab account and create a new project 
 
