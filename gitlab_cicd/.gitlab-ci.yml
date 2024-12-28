@@ -1,0 +1,87 @@
+stages:
+    - validate_environment
+    - build_and_publish
+    - deploy_to_dev
+    - deploy_to_production    
+    - finalize_pipeline
+
+workflow:  # Trigger pipeline only for specific branches
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+
+image: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
+
+variables:
+  AWS_ACCOUNT_NUMBER : "654654507397"
+  REGION             : "us-east-1"
+  IMAGE_REPOSITORY   : "web-app-repository"
+  CLUSTER_NAME       : "web-app-cluster"
+
+  DEV_SERVICE_NAME   : "web-app-dev"
+  DEV_TASK_NAME      : "web-app-dev"
+
+  PROD_SERVICE_NAME  : "web-app-prod"
+  PROD_TASK_NAME     : "web-app-prod"
+
+test_environment:
+  stage: validate_environment
+  script:
+    - echo "Validating environment setup..."
+    - aws --version
+    - docker --version
+    - jq --version
+    - aws sts get-caller-identity  
+
+build_and_push:
+  stage: build_and_publish
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375  
+  before_script:
+   - aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_NUMBER.dkr.ecr.$REGION.amazonaws.com
+
+  script:
+    - echo "Building the Docker image..."
+    - docker build -t $IMAGE_REPOSITORY .
+    - echo "Tagging the image..."
+    - docker tag $IMAGE_REPOSITORY:latest $AWS_ACCOUNT_NUMBER.dkr.ecr.$REGION.amazonaws.com/$IMAGE_REPOSITORY:$CI_COMMIT_BRANCH-latest
+    - docker tag $IMAGE_REPOSITORY:latest $AWS_ACCOUNT_NUMBER.dkr.ecr.$REGION.amazonaws.com/$IMAGE_REPOSITORY:$CI_COMMIT_BRANCH-$CI_COMMIT_SHORT_SHA
+    - echo "Pushing the image to ECR..."
+    - docker push $AWS_ACCOUNT_NUMBER.dkr.ecr.$REGION.amazonaws.com/$IMAGE_REPOSITORY:$CI_COMMIT_BRANCH-latest
+    - docker push $AWS_ACCOUNT_NUMBER.dkr.ecr.$REGION.amazonaws.com/$IMAGE_REPOSITORY:$CI_COMMIT_BRANCH-$CI_COMMIT_SHORT_SHA
+
+deploy_to_dev:
+  stage: deploy_to_dev
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+  script:
+    - echo "Deploying to development environment..."
+    - |
+      aws ecs update-service \
+        --cluster         $CLUSTER_NAME \
+        --service         $DEV_SERVICE_NAME \
+        --task-definition $DEV_TASK_NAME \
+        --force-new-deployment
+
+deploy_to_production:
+  stage: deploy_to_production
+  when: manual                                  # Require manual confirmation for production
+  manual_confirmation: 'Proceed with production deployment?' 
+  allow_failure: false                          # Must succeed to continue
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - echo "Deploying to production environment..."
+    - |
+      aws ecs update-service \
+        --cluster         $CLUSTER_NAME \
+        --service         $PROD_SERVICE_NAME \
+        --task-definition $PROD_TASK_NAME \
+        --force-new-deployment        
+
+finalize_pipeline:
+  stage: finalize_pipeline
+  script:
+    - echo "CI/CD Pipeline completed successfully!"
