@@ -67,6 +67,7 @@ cd ecs-gitlab-terraform
 ├── backend/           # Terraform backend module
 ├── networking/        # VPC and networking module
 ├── ecs/               # ECS cluster and services module
+├── gitlab_cicd/       # Gitlab pipeline file 
 ├── images/            # Architecture and CI/CD images
 ├── app/               # Python application code
 ├── .gitlab-ci.yml     # GitLab CI/CD pipeline
