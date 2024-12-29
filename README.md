@@ -989,6 +989,9 @@ Stages: Automate validation, build, push, and deployment through defined CI/CD s
 - Setup branch dev and main protection
 - Setup GitLab CICD Pipelines
 
+
+![alt text](images/gitlab_cicd_01.png)
+
 ### GitLab IAM user
 
 Terraform will create an IAM user and store IAM acccess and secret credentials for 'gitlab-cicd' user. We will need to retrieve IAM access and sercret keys from SSM Parameters Store.  This user doesn't need programmatic but terminal access only. 
@@ -1018,10 +1021,12 @@ Set 3 variables for your pipeline
 
 ### Pipelines setup
 ##
+The .gitlab-ci.yml file automates the entire pipeline for deploying a web app on AWS ECS. It validates the environment, builds and pushes Docker images to AWS ECR, and deploys to ECS services (dev branch auto-deploys, main branch requires manual approval for production). It uses environment variables for flexibility and integrates ECS updates with forced new deployments for both dev and prod environments.
 
 ![alt text](images/gitlabcicdyaml.png)
 
 ## .gitlab-ci.yml
+
 
 ```yaml
 stages:
@@ -1113,6 +1118,9 @@ finalize_pipeline:
     - echo "CI/CD Pipeline completed successfully!"
 ```
 
+This is how pipelines will look like 
+
+![alt text](images/cicd_pipeline_stages.jpg)
 
 ## Python application 
 
