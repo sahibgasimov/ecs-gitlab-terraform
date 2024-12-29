@@ -1,4 +1,4 @@
-# ECS Fargate Deployment with Terraform and GitLab CI/CD
+# AWS ECS Fargate Deployments with Terraform and GitLab CI/CD using Python application.
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -10,7 +10,7 @@
    - [ECS Infrastructure Overview](#ecs-infrastructure)
       - [ECS Configuration](#ecs-configuration)
       - [ALB Configuration](#alb-configuration)
-      - [ECR Configuration](#ecr-configuration) (have to create manually to push the docker image first)
+      - [ECR Configuration](#ecr-configuration) (must to create manually to push the docker image first)
       - [ACM Configuration](#acm-configuration)
       - [Route53 Configuration](#route53-configuration)
       - [IAM Permissions](#iam-roles-and-policies-for-ecs-tasks)
