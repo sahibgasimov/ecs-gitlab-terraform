@@ -1019,6 +1019,8 @@ Set 3 variables for your pipeline
 ### Pipelines setup
 ##
 
+https://gitlab.com/sahib.gasimov2/gitlabcicd-ecs - You can copy all CICD files from this repo. 
+
 ![alt text](images/gitlabcicdyaml.png)
 
 ## .gitlab-ci.yml
