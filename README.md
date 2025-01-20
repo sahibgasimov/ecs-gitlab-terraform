@@ -1,4 +1,4 @@
-# ECS Fargate Deployment with Terraform and GitLab CI/CD
+# AWS ECS Fargate Deployments with Terraform and GitLab CI/CD using Python application.
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -10,7 +10,7 @@
    - [ECS Infrastructure Overview](#ecs-infrastructure)
       - [ECS Configuration](#ecs-configuration)
       - [ALB Configuration](#alb-configuration)
-      - [ECR Configuration](#ecr-configuration) (have to create manually to push the docker image first)
+      - [ECR Configuration](#ecr-configuration) (must to create manually to push the docker image first)
       - [ACM Configuration](#acm-configuration)
       - [Route53 Configuration](#route53-configuration)
       - [IAM Permissions](#iam-roles-and-policies-for-ecs-tasks)
@@ -989,6 +989,9 @@ Stages: Automate validation, build, push, and deployment through defined CI/CD s
 - Setup branch dev and main protection
 - Setup GitLab CICD Pipelines
 
+
+![alt text](images/gitlab_cicd_01.png)
+
 ### GitLab IAM user
 
 Terraform will create an IAM user and store IAM acccess and secret credentials for 'gitlab-cicd' user. We will need to retrieve IAM access and sercret keys from SSM Parameters Store.  This user doesn't need programmatic but terminal access only. 
@@ -1018,12 +1021,14 @@ Set 3 variables for your pipeline
 
 ### Pipelines setup
 ##
+The .gitlab-ci.yml file automates the entire pipeline for deploying a web app on AWS ECS. It validates the environment, builds and pushes Docker images to AWS ECR, and deploys to ECS services (dev branch auto-deploys, main branch requires manual approval for production). It uses environment variables for flexibility and integrates ECS updates with forced new deployments for both dev and prod environments.
 
 https://gitlab.com/sahib.gasimov2/gitlabcicd-ecs - You can copy all CICD files from this repo. 
 
 ![alt text](images/gitlabcicdyaml.png)
 
 ## .gitlab-ci.yml
+
 
 ```yaml
 stages:
@@ -1115,6 +1120,9 @@ finalize_pipeline:
     - echo "CI/CD Pipeline completed successfully!"
 ```
 
+This is how pipelines will look like 
+
+![alt text](images/cicd_pipeline_stages.jpg)
 
 ## Python application 
 
